@@ -2,80 +2,145 @@
 #include <stdio.h>
 #include <pthread.h>
 
-struct T {
-int i;
-int j;
-};
+struct T
+{
+  int row;
+  int col;
+  int k;
+  int **mat_1;
+  int **mat_2;
+  int **mat_result;
+} T;
 
-void get_input(int**,int*,int*);
-int** allocate_matrix(int*,int*);
-void matrix_mul(int**,int**,int*,int*,int* );
-void get_dimentions(int*,int*);
-int main() {
-  int number_of_rows,number_of_columns,number_of_rows_2,number_of_columns_2;
-  get_dimentions(&number_of_rows,&number_of_columns);
-  int** matrix_1 = allocate_matrix(&number_of_rows,&number_of_columns);
-  get_input(matrix_1,&number_of_rows,&number_of_columns);
-  get_dimentions(&number_of_rows_2,&number_of_columns_2);
-  int** matrix_2 = allocate_matrix(&number_of_rows_2,&number_of_columns_2);
-  get_input(matrix_2,&number_of_rows_2,&number_of_columns_2);
-  matrix_mul(matrix_1,matrix_2,&number_of_rows,&number_of_columns_2,&number_of_columns);
-  pthread_t threads[number_of_rows*number_of_columns_2];
-  
+void get_input(int **, int *, int *);
+int **allocate_matrix(int *, int *);
+void matrix_mul(int **, int **, int *, int *, int *);
+void get_dimentions(int *, int *);
+void *element_by_element(void *);
+void print_matrix(int **, int , int );
+int main()
+{
+  int number_of_rows, number_of_columns, number_of_rows_2, number_of_columns_2, i, j;
+  get_dimentions(&number_of_rows, &number_of_columns);
+  int **matrix_1 = allocate_matrix(&number_of_rows, &number_of_columns);
+  get_input(matrix_1, &number_of_rows, &number_of_columns);
+  get_dimentions(&number_of_rows_2, &number_of_columns_2);
+  int **matrix_2 = allocate_matrix(&number_of_rows_2, &number_of_columns_2);
+  get_input(matrix_2, &number_of_rows_2, &number_of_columns_2);
+  matrix_mul(matrix_1, matrix_2, &number_of_rows, &number_of_columns_2, &number_of_columns);
+  int **matrix_result = allocate_matrix(&number_of_rows, &number_of_columns_2);
+  pthread_t threads[number_of_rows][number_of_columns_2];
+  struct T *data = (struct T *)malloc(sizeof(struct T));
+  printf("------------------------------------------------------------------\n");
+  for (i = 0; i < number_of_rows; i++)
+  {
+    for (j = 0; j < number_of_columns_2; j++)
+    {
+      data->row = i;
+      data->col = j;
+      data->k = number_of_rows;
+      data->mat_1 = matrix_1;
+      data->mat_2 = matrix_2;
+      data->mat_result = matrix_result;
+      pthread_create(&threads[i][j], NULL, element_by_element, data);
+    }
+  }
+  for (i = 0; i < number_of_rows; i++)
+  {
+    for (j = 0; j < number_of_columns_2; j++)
+    {
+      pthread_join(threads[i][j], NULL);
+    }
+  }
+  print_matrix(matrix_result,number_of_rows,number_of_columns_2);
 
   return 0;
 }
 
-void get_input(int** matrix,int* rows,int* columns) {
-  int i,j;
-  for (i = 0; i < *rows; i++) {
-    printf("Enter elements in row number %d\n",i+1);
-    for (j = 0; j < *columns; j++) {
-      scanf("%d",&matrix[i][j]);
+void *element_by_element(void *data)
+{
+  int row = ((struct T *)data)->row;
+  int col = ((struct T *)data)->col;
+  int **mat_1 = ((struct T *)data)->mat_1;
+  int **mat_2 = ((struct T *)data)->mat_2;
+  int **mat_result = ((struct T *)data)->mat_result;
+  int i, j, accumulator, x;
+  for (i = 0; i <= row; i++)
+  {
+    for (j = 0; j <= col; j++)
+    { 
+      accumulator = 0;
+      for (x = 0; x < ((struct T *)data)->k; x++)
+        accumulator = accumulator + mat_1[i][x] * mat_2[x][j];
+      mat_result[i][j] = accumulator;
     }
   }
-}
-void get_dimentions(int* number_of_rows,int* number_of_columns){
-  int x,y;
-  printf("Enter number of rows --> " );
-  scanf("%i",&x);
-  *number_of_rows=x;
-  printf("Enter number of columns --> " );
-  scanf("%i",&y);
-  *number_of_columns =y;
 }
 
-int** allocate_matrix(int* number_of_rows,int* number_of_columns){
-  int i;
-  
-  int **matrix = (int**)malloc(sizeof *matrix * *number_of_rows);
-  if (matrix)
+void get_input(int **matrix, int *rows, int *columns)
+{
+  int i, j;
+  for (i = 0; i < *rows; i++)
   {
-    for (i = 0; i <*number_of_rows; i++)
+    printf("Enter elements in row number %d\n", i + 1);
+    for (j = 0; j < *columns; j++)
     {
-        matrix[i] = (int*)malloc(sizeof *matrix[i] * *number_of_columns);
+      scanf("%d", &matrix[i][j]);
     }
   }
-  else{
-    printf("Error allocating matrix!!\n" );
+}
+void get_dimentions(int *number_of_rows, int *number_of_columns)
+{
+  int x, y;
+  printf("Enter number of rows --> ");
+  scanf("%i", &x);
+  *number_of_rows = x;
+  printf("Enter number of columns --> ");
+  scanf("%i", &y);
+  *number_of_columns = y;
+}
+
+int **allocate_matrix(int *number_of_rows, int *number_of_columns)
+{
+  int i;
+
+  int **matrix = (int **)malloc(sizeof *matrix * *number_of_rows);
+  if (matrix)
+  {
+    for (i = 0; i < *number_of_rows; i++)
+    {
+      matrix[i] = (int *)malloc(sizeof *matrix[i] * *number_of_columns);
+    }
+  }
+  else
+  {
+    printf("Error allocating matrix!!\n");
   }
   return matrix;
 }
 
-void matrix_mul(int** matrix_1,int** matrix_2,int* number_of_rows_1,int* number_of_columns_2,int* number_of_columns_1){
-   int** matrix = allocate_matrix(number_of_rows_1,number_of_columns_2);
-   int i,j,k;
-     for(i=0; i<*number_of_rows_1; ++i)
-            for(j=0; j<*number_of_columns_2; ++j)
-                for(k=0; k<*number_of_columns_1; ++k)
-                {
-                    matrix[i][j]+=matrix_1[i][k]*matrix_2[k][j];
-                }
-    for (i = 0; i < *number_of_rows_1; i++) {
-      for (j = 0; j < *number_of_columns_2; j++) {
-        printf("%d ",matrix[i][j]);
-      }
-      printf("\n");
+void print_matrix(int **matrix, int r, int c)
+{
+  int i, j;
+  for (i = 0; i < r; i++)
+  {
+    for (j = 0; j < c; j++)
+    {
+      printf("%d ", matrix[i][j]);
     }
+    printf("\n");
+  }
+}
 
+void matrix_mul(int **matrix_1, int **matrix_2, int *number_of_rows_1, int *number_of_columns_2, int *number_of_columns_1)
+{
+  int **matrix = allocate_matrix(number_of_rows_1, number_of_columns_2);
+  int i, j, k;
+  for (i = 0; i < *number_of_rows_1; ++i)
+    for (j = 0; j < *number_of_columns_2; ++j)
+      for (k = 0; k < *number_of_columns_1; ++k)
+      {
+        matrix[i][j] += matrix_1[i][k] * matrix_2[k][j];
+      }
+  print_matrix(matrix, *number_of_rows_1, *number_of_columns_2);
 }
