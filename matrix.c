@@ -38,7 +38,7 @@ int main()
     {
       data->row = i;
       data->col = j;
-      data->k = number_of_rows;
+      data->k = number_of_columns;
       data->mat_1 = matrix_1;
       data->mat_2 = matrix_2;
       data->mat_result = matrix_result;
