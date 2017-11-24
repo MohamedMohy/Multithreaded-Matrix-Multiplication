@@ -19,9 +19,10 @@ void matrix_mul(int **, int **, int *, int *, int *);
 void get_dimensions(int *, int *);
 void *element_by_element(void *);
 void print_matrix(int **, int, int);
+void *row_by_row(void *);
 int main()
 {
-  number_of_threads=0;
+  number_of_threads = 0;
   int number_of_rows, number_of_columns, number_of_rows_2, number_of_columns_2, i, j;
   get_dimensions(&number_of_rows, &number_of_columns);
   int **matrix_1 = allocate_matrix(&number_of_rows, &number_of_columns);
@@ -29,6 +30,11 @@ int main()
   get_dimensions(&number_of_rows_2, &number_of_columns_2);
   int **matrix_2 = allocate_matrix(&number_of_rows_2, &number_of_columns_2);
   get_input(matrix_2, &number_of_rows_2, &number_of_columns_2);
+  if (number_of_columns != number_of_rows_2)
+  {
+    printf("matrix format error!  exiting!...\n");
+    return 0;
+  }
   matrix_mul(matrix_1, matrix_2, &number_of_rows, &number_of_columns_2, &number_of_columns);
   int **matrix_result = allocate_matrix(&number_of_rows, &number_of_columns_2);
   pthread_t threads[number_of_rows][number_of_columns_2];
@@ -39,14 +45,12 @@ int main()
     {
       struct T *data = (struct T *)malloc(sizeof(struct T));
       data->row = i;
-      printf("%d%d\n",i,j);
       data->col = j;
       data->k = number_of_columns;
       data->mat_1 = matrix_1;
       data->mat_2 = matrix_2;
       data->mat_result = matrix_result;
       pthread_create(&threads[i][j], NULL, element_by_element, data);
-      
     }
   }
   for (i = 0; i < number_of_rows; i++)
@@ -57,25 +61,50 @@ int main()
     }
   }
   print_matrix(matrix_result, number_of_rows, number_of_columns_2);
+  printf("------------------------------------------------------------------\n");
+  pthread_t threads2[number_of_rows];
+  int **matrix_result_2 = allocate_matrix(&number_of_rows, &number_of_columns_2);
+  for (i = 0; i < number_of_rows; i++)
+  {
+    struct T *data = (struct T *)malloc(sizeof(struct T));
+    data->row = i;
+    data->k = number_of_columns;
+    data->mat_1 = matrix_1;
+    data->mat_2 = matrix_2;
+    data->mat_result = matrix_result_2;
+    pthread_create(&threads2[i], NULL, row_by_row, data);
+  }
+  for (j = 0; j < number_of_columns_2; j++)
+  {
+    pthread_join(threads2[j], NULL);
+  }
+  print_matrix(matrix_result_2, number_of_rows, number_of_columns_2);
 
   return 0;
 }
-
+void *row_by_row(void *data)
+{
+  int i, j, accumulator, x;
+  j = 0;
+  for (i = 0; i < ((struct T *)data)->k; i++)
+  {
+    accumulator = 0;
+    for (x = 0; x < ((struct T *)data)->k; x++)
+    {
+      accumulator = accumulator + ((struct T *)data)->mat_1[((struct T *)data)->row][x] * ((struct T *)data)->mat_2[x][i];
+    }
+    ((struct T *)data)->mat_result[((struct T *)data)->row][i] = accumulator;
+  }
+}
 void *element_by_element(void *data)
 {
-  number_of_threads++;
-  int row = ((struct T *)data)->row;
-  int col = ((struct T *)data)->col;
-  int **mat_1 = ((struct T *)data)->mat_1;
-  int **mat_2 = ((struct T *)data)->mat_2;
-  int **mat_result = ((struct T *)data)->mat_result;
   int i, j, accumulator, x;
   accumulator = 0;
-  for (x = 0; x < ((struct T *)data)->k; x++){
-    accumulator = accumulator + mat_1[row][x] * mat_2[x][col];
+  for (x = 0; x < ((struct T *)data)->k; x++)
+  {
+    accumulator = accumulator + ((struct T *)data)->mat_1[((struct T *)data)->row][x] * ((struct T *)data)->mat_2[x][((struct T *)data)->col];
   }
-  mat_result[row][col] = accumulator;
-  
+  ((struct T *)data)->mat_result[((struct T *)data)->row][((struct T *)data)->col] = accumulator;
 }
 
 void get_input(int **matrix, int *rows, int *columns)
